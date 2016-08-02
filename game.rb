@@ -1,6 +1,7 @@
 class Game 
-
-	def initialize
+require_relative 'tic_tac_toe_board'
+include TicTacToeBoard
+	def initialize(p1, p2)
 		@cases = 
 						[
 							[" ", " ", " "],
@@ -9,36 +10,50 @@ class Game
 						]
 		@pos_hash = Hash.new { |h, k| h[k] = [] }
 		display
+		@players = [p1, p2]
+		@stats = {p1: [0, 0, 0], p2: [0, 0, 0]}
 	end
 
 	def play(player, sym)
-		puts "Player #{player}, it's your turn."
+		
 		begin
-			puts "Where do you want to play? (e.g. A1)"
-			pos = gets.strip
-			pos = pos.split("")
-			y = pos[0].downcase.ord - 97
-			x = pos[1].to_i - 1
-			if @cases[x][y] != " "
+			pos = player.play(@pos_hash)
+			pos = to_coordinates(pos)
+			x = pos[0]
+			y = pos[1]
+			if @cases[x][y] != " " 
 				raise "Illegal move"
 			end
+			@pos_hash[sym].push([x, y])
 			@cases[x][y] = sym.to_s.downcase
-		rescue 
+		rescue Exception=>e
+			puts "Caughts : #{e}"
 			puts "It's an illegal move!\n"
+			sleep 2
 			retry
 		end
 		display
 	end
 
 	def over?
-		state_update
 
-		if win?(:x)
-			puts "Player 1 wins!\n"
-		elsif win?(:o)
-			puts "Player 2 wins!\n"
+		if win?(@players[0].symbol)
+			puts "Player 1 wins!"
+			@stats[:p1][0] += 1
+			@players[0].victories = @stats[:p1][0]
+			@stats[:p2][1] += 1
+			@players[1].losses = @stats[:p2][1]
+		elsif win?(@players[1].symbol)
+			puts "Player 2 wins!"
+			@stats[:p1][1] += 1
+			@players[1].victories = @stats[:p2][0]
+			@stats[:p2][0] += 1
+			@players[0].losses = @stats[:p1][1]
 		elsif draw?
-			puts "It's a draw...\n"
+			puts "It's a draw...\n\n"
+			@stats[:p1][2] += 1
+			@stats[:p2][2] += 1
+			@players.each { |player| player.ties = @stats[:p1][2] }
 		else
 			return false
 		end
@@ -56,70 +71,16 @@ class Game
 			puts "#{i + 1}  #{row[0]} | #{row[1]} | #{row[2]} "
 			puts "  " + "-" * 11 unless i == 2
 		end
-	end
-
-	# updates @pos_hash which contains all positions occupied by both :x and :o
-	def state_update
-
-		@cases.each_with_index do |row, i|
-			row.each_with_index do |pos, j|
-				@pos_hash[pos.to_sym].push([i, j])
-			end
-		end
-
+		puts "\n"
 	end
 
 	def win?(sym)
-		if vertical_win?(@pos_hash[sym]) || horizontal_win?(@pos_hash[sym]) || diagonal_win?(@pos_hash[sym])
-			return true
-		end
-		return false
-	end
-
-	def vertical_win?(arr)
-		counter = Hash.new { |h, k| h[k] = 0 }
-		arr.each do |x, y|
-			p counter # to delete
-			counter[y] += 1
-		end
-		win = false
-		(0..2).each do |y|
-			if counter[y] == 3
-				puts "Vertical win, hash : #{counter}" # to delete
-				win = true 
-			end
-		end
-		return win
-	end
-
-	def horizontal_win?(arr)
-		counter = Hash.new { |h, k| h[k] = 0 }
-		arr.each do |x, y|
-			p counter # to delete
-			counter[x] += 1
-		end
-		win = false
-		(0..2).each do |x|
-			if counter[x] == 3
-				puts "Horizontal win, hash : #{counter}" # to delete
-				win = true 
-			end
-		end
-		return win
-	end
-
-	def diagonal_win?(arr)
-		corners = {top_left: [0, 0], top_right: [0, 2], bottom_left: [2, 0], bottom_right: [2, 2]}
-		left_right = [corners[:top_left], corners[:bottom_right]]
-		right_left = [corners[:top_right], corners[:bottom_left]]
-		if arr.include?([1, 1])
-			if left_right.all? {|corner| arr.include?(corner)} || right_left.all? {|corner| arr.include?(corner)}
-				puts "Diagonal win, hash : #{counter}" # to delete
+		POSSIBLE_WINS.each do |win|
+			if win.all? { |pos| @pos_hash[sym].include?(pos) }
 				return true
 			end
-		else
-			return false
 		end
+		return false
 	end
 
 	def draw?
